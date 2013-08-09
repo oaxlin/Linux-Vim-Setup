@@ -5,4 +5,4 @@
 # Software Foundation.
 #
 
-/usr/bin/rsync ./ ~/ -avzlu --exclude ".git" --exclude "installer" --exclude "README" $@
+/usr/bin/rsync ${HOME}/Linux-Vim-Setup/ ${HOME}/ -rvzu --exclude ".git" --exclude "installer" --exclude "README" --exclude "*.swp" $@
