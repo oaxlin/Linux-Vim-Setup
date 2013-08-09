@@ -1,5 +1,8 @@
 Non-standard linux and vim files that I use to make my life easier.
 
+The root of this git repo is assumed to be your home directory.
+In other words the "bin" directory is actually "~/bin"
+
 Some of these are modifications from other authors so see each individual file for it's license.
 
 THERE IS NO WARRANTY FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY
