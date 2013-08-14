@@ -6,3 +6,14 @@
 #
 
 /usr/bin/rsync ${HOME}/Linux-Vim-Setup/ ${HOME}/ -rvzu --exclude ".git" --exclude "installer" --exclude "README" --exclude "*.swp" $@
+
+if [ -e ~/.ssh/authorized_keys ] && grep -q "no-agent-forwarding" ~/.ssh/authorized_keys
+then
+        echo "*************************************************************"
+        echo "*************************************************************"
+        echo "****                                                     ****"
+        echo "****  ~/.ssh/authorized_keys does not auto forward keys  ****"
+        echo "****                                                     ****"
+        echo "*************************************************************"
+        echo "*************************************************************"
+fi

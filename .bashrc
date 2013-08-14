@@ -5,8 +5,11 @@
 # Look for my custom scripts
 PATH=$PATH:$HOME/bin
 export PATH
-PS1='\u@\h:\w] '
+PS1='\r[\u@\h:\w] '
 export PS1
+PROMPT_COMMAND='echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD/#$HOME/~}\007"'
+shopt -s promptvars
+PS1='$(printf "%$((COLUMNS-1))s\r")'$PS1
 
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
