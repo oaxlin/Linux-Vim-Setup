@@ -5,10 +5,16 @@
 # Software Foundation.
 #
 
-/usr/bin/rsync ${HOME}/Linux-Vim-Setup/ ${HOME}/ -rvzu --exclude ".git" --exclude "installer" --exclude "README" --exclude "*.swp" $@
-
-if [ -e ~/.ssh/authorized_keys ] && grep -q "no-agent-forwarding" ~/.ssh/authorized_keys
-then
+if [ $1 ]; then
+    echo -n "Copying to $1...";
+    rsync ~/Linux-Vim-Setup/ jterry:~/Linux-Vim-Setup/ -avzlu > /dev/null;
+    echo "done";
+    echo "Running remote install";
+    ssh jterry '~/Linux-Vim-Setup/installer'
+else
+    /usr/bin/rsync ${HOME}/Linux-Vim-Setup/ ${HOME}/ -rvzu --exclude ".git" --exclude "installer" --exclude "README" --exclude "*.swp" $@
+    if [ -e ~/.ssh/authorized_keys ] && grep -q "no-agent-forwarding" ~/.ssh/authorized_keys
+    then
         echo "*************************************************************"
         echo "*************************************************************"
         echo "****                                                     ****"
@@ -16,4 +22,5 @@ then
         echo "****                                                     ****"
         echo "*************************************************************"
         echo "*************************************************************"
+    fi
 fi
