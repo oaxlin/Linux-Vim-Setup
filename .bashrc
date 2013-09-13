@@ -7,7 +7,7 @@ PATH=$PATH:$HOME/bin
 export PATH
 PS1='\r[\u@\h:\w] '
 export PS1
-PROMPT_COMMAND='echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD/#$HOME/~}\007"'
+PROMPT_COMMAND='~/bin/bash_newline;echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD/#$HOME/~}\007"'
 shopt -s promptvars
 PS1='$(printf "%$((COLUMNS-1))s\r")'$PS1
 
