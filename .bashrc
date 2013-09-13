@@ -5,7 +5,7 @@
 # Look for my custom scripts
 PATH=$PATH:$HOME/bin
 export PATH
-PS1='\r[\u@\h:\w] '
+PS1='[\u@\h:\w] '
 export PS1
 PROMPT_COMMAND='~/bin/bash_newline;echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD/#$HOME/~}\007"'
 shopt -s promptvars
