@@ -9,7 +9,7 @@ echo -en "\033[6n" > /dev/tty
 IFS=';' read -r -d R -a pos
 stty $oldstty
 # change from one-based to zero based so they work with: tput cup $row $col
-row=$((${pos[0]:2} - 1))    # strip off the esc-[
+#row=$((${pos[0]:2} - 1))    # strip off the esc-[
 col=$((${pos[1]} - 1))
 if [ $col != 0 ]; then
     echo;
