@@ -32,15 +32,13 @@ if [ -z "$files" ]; then
 fi
 for f in $files; do
   if ! [ -f $f ]; then break; fi
-  patch=`mktemp $prefix.XXXXXX`
-  orig=`mktemp $prefix.XXXXXX.$f`
+  patch=`mktemp .gitdiff.XXXXXX`
+  orig="$patch.orig"
   trap "rm -f $patch $orig" EXIT
   cp "$f" $orig
-  echo $f
-  echo $orig;
   git diff -r $rev -u "$f" > $patch
   cp "$f" $orig
   patch -R -p0 $orig $patch
 
-  $vimdiff $f $orig
+  $vimdiff -R $f -c ':se noreadonly' $orig
 done
