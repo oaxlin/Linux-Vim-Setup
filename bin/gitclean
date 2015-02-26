@@ -22,6 +22,11 @@ fi
 git checkout master &> /dev/null
 BRANCHES=`git branch --merged master | grep -v "\*" | grep -v 'master' | grep -v 'develop'`;
 while read -r BRANCH; do
+    if [ -z "$BRANCH" ]
+    then
+        echo "No branches to clean."
+        continue;
+    fi
     echo -n "$BRANCH: "
     git checkout "$BRANCH" &> /dev/null
     TXT=`git push -n origin $BRANCH 2>&1`
