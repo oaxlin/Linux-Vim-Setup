@@ -1,0 +1,37 @@
+#!/bin/sh
+
+#
+# Deletes LOCAL branches that have been merged into master and have NO current local changes.
+# A good way to prune the old branches you have lying around but don't need cluttering your local tree.
+#
+# If you end up needing the branch after deletion you can check it out from the remote again.
+#
+
+if ! git ls-files >& /dev/null; then
+    echo "You are not in a git repo."
+    exit;
+fi
+
+CUR=`git rev-parse --abbrev-ref HEAD`
+TXT=`git rev-parse --show-toplevel | git ls-files --exclude-standard --others --deleted -v -m`;
+if [ -n "$TXT" ]
+then
+    echo 'You have uncommited changes in this branch.  Please commit or stash before deleting old branches.';
+    exit;
+fi
+git checkout master &> /dev/null
+BRANCHES=`git branch --merged master | grep -v "\*" | grep -v 'master' | grep -v 'develop'`;
+while read -r BRANCH; do
+    echo -n "$BRANCH: "
+    git checkout "$BRANCH" &> /dev/null
+    TXT=`git push -n origin $BRANCH 2>&1`
+    if [ "$TXT" == "Everything up-to-date" ]
+    then
+        git checkout master &> /dev/null
+        git branch -d "$BRANCH"
+    else
+        echo "NOT DELETED, "$TXT
+    fi
+done <<< "$BRANCHES"
+git checkout master &> /dev/null
+git checkout $CUR &> /dev/null
