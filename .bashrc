@@ -14,7 +14,25 @@ then
         WINDOW_TITLE_PREFIX=`cat ~/.window_title_prefix`;
 fi
 
-PROMPT_COMMAND='~/bin/bash_newline;echo -ne "\033]0;${WINDOW_TITLE_PREFIX}${USER}@${HOSTNAME}: ${PWD/#$HOME/~}\007"'
+# Stuff for git
+#
+function git-branch-name {
+    git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3,4
+}
+function git-branch-prompt {
+    local branch=`git-branch-name 2>/dev/null`
+    if [ $branch ]; then
+        printf "\[\e[1;32m\]%s\[\e[0m\] " $branch;
+    elif [ -d 'CVSROOT' ]; then
+        printf "\[\e[1;32m\]%s\[\e[0m\] " 'CVS';
+    fi
+}
+function get_prompt {
+    PS1="$(printf "%$((COLUMNS-1))s\r")\j $(git-branch-prompt)\u@\h:\w] "
+}
+
+#PS1='$(printf "%$((COLUMNS-1))s\r")\j$(git-branch-prompt 2>/dev/null) \u@\h:\w] '
+PROMPT_COMMAND='~/bin/bash_newline;echo -ne "\033]0;${WINDOW_TITLE_PREFIX}${USER}@${HOSTNAME}: ${PWD/#$HOME/~}\007";get_prompt'
 shopt -s promptvars
 
 # If not running interactively, don't do anything
@@ -68,20 +86,6 @@ alias l='ls -CF'
 #   sleep 10; alert
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 
-# Stuff for git
-#
-function git-branch-name {
-    git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3,4
-}
-function git-branch-prompt {
-    local branch=`git-branch-name`
-    if [ $branch ]; then
-        printf " \033[0;32m%s\033[0m" $branch;
-    elif [ -d 'CVSROOT' ]; then
-        printf " \033[0;32m%s\033[0m" 'CVS';
-    fi
-}
-
 # Alias definitions.
 # You may want to put all your additions into a separate file like
 # ~/.bash_aliases, instead of adding them here directly.
@@ -102,5 +106,3 @@ fi
 if [ -f /etc/bashrc ]; then
     . /etc/bashrc
 fi
-
-PS1='$(printf "%$((COLUMNS-1))s\r")\j$(git-branch-prompt 2>/dev/null) \u@\h:\w] '
