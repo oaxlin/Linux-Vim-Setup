@@ -22,7 +22,15 @@ function git-branch-name {
 function git-branch-prompt {
     local branch=`git-branch-name 2>/dev/null`
     if [ $branch ]; then
-        printf "\[\e[1;32m\]%s\[\e[0m\] " $branch;
+        local untracked=`git ls-files --others --exclude-standard`
+        local gitdiff=`git diff --name-only`
+        if [ "$gitdiff" != "" ]; then
+            printf "\[\e[1;31m\]%s\[\e[0m\] " $branch;
+        elif [ "$untracked" != "" ]; then
+            printf "\[\e[1;33m\]%s\[\e[0m\] " $branch;
+        else
+            printf "\[\e[1;32m\]%s\[\e[0m\] " $branch;
+        fi
     elif [ -d 'CVSROOT' ]; then
         printf "\[\e[1;32m\]%s\[\e[0m\] " 'CVS';
     fi
