@@ -16,11 +16,8 @@ fi
 
 # Stuff for git
 #
-function git-branch-name {
-    git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3,4
-}
 function git-branch-prompt {
-    local branch=`git-branch-name 2>/dev/null`
+    local branch=`git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3,4`
     if [ $branch ]; then
         local untracked=`git ls-files --others --exclude-standard`
         local gitdiff=`git diff --name-only`
