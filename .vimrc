@@ -15,7 +15,7 @@ set ignorecase " Ignore case in all searches...
 set smartcase " ... unless that search itself contains a cap
 set hlsearch " Highlight all matches
 set updatecount =20
-set swapsync
+silent set swapsync
 nnoremap v <C-V>
 nnoremap <C-V> v
 
