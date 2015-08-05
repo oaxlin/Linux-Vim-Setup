@@ -19,12 +19,19 @@ fi
 function git-branch-prompt {
     local branch=`git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3,4`
     if [ $branch ]; then
-        local untracked=`git ls-files --others --exclude-standard`
-        local gitdiff=`git diff --name-only`
-        if [ "$gitdiff" != "" ]; then
-            printf "\[\e[1;31m\]%s\[\e[0m\] " $branch;
-        elif [ "$untracked" != "" ]; then
-            printf "\[\e[1;33m\]%s\[\e[0m\] " $branch;
+        local untracked=`git status -s`
+        if [ "$untracked" != "" ]; then
+            local gitdiff=`git diff --name-only`
+            if [ "$gitdiff" != "" ]; then
+                printf "\[\e[1;31m\]%s\[\e[0m\] " $branch;
+            else
+                local gitnew=`git diff --cached --name-only --diff-filter=A`
+                if [ "$gitnew" != "" ]; then
+                    printf "\[\e[1;31m\]%s\[\e[0m\] " $branch;
+                else
+                    printf "\[\e[1;33m\]%s\[\e[0m\] " $branch;
+                fi
+            fi
         else
             printf "\[\e[1;32m\]%s\[\e[0m\] " $branch;
         fi
