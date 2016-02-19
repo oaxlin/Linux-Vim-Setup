@@ -24,3 +24,4 @@ else
         echo "*************************************************************"
     fi
 fi
+git config --global init.templatedir '~/.git-templates'

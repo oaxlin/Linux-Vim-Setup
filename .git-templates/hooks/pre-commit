@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use File::Basename;
+
+my $nb_errors = 0;
+
+# run checks on each file
+for my $filepath (`git diff --cached --name-only`) {
+    chomp $filepath;
+    open my $fh, "<" . $filepath;
+
+    my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
+    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `/usr/bin/head --lines 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
+        print "Checking perlcritic: $filepath\n";
+        my $out = qx{/usr/bin/perlcritic $filepath};
+        if ($?) {
+            print $out;
+            $nb_errors++;
+        }
+    }
+}
+
+if ( $nb_errors ) {
+    print "Aborting commit due to pre-commit hook failure.  You can still commit with the --no-verify argument.\n";
+    exit 1;
+}
+exit 0;
