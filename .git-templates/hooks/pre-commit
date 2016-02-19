@@ -8,12 +8,12 @@ my $nb_errors = 0;
 # run checks on each file
 for my $filepath (`git diff --cached --name-only`) {
     chomp $filepath;
-    open my $fh, "<" . $filepath;
+    open my $fh, "<", $filepath;
 
     my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `/usr/bin/head --lines 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
+    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `head -n 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
         print "Checking perlcritic: $filepath\n";
-        my $out = qx{/usr/bin/perlcritic $filepath};
+        my $out = qx{perlcritic $filepath};
         if ($?) {
             print $out;
             $nb_errors++;
