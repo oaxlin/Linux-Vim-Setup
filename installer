@@ -12,7 +12,7 @@ if [ $1 ]; then
     echo "Running remote install";
     ssh $1 '~/Linux-Vim-Setup/installer'
 else
-    /usr/bin/rsync ${HOME}/Linux-Vim-Setup/ ${HOME}/ -avzr --exclude ".git" --exclude "installer" --exclude "README" --exclude "*.swp" $@
+    /usr/bin/rsync ${HOME}/Linux-Vim-Setup/ ${HOME}/ -vvzr --exclude ".git" --exclude "installer" --exclude "README" --exclude "*.swp" $@
     git config --global init.templatedir '~/.git-templates'
     if [ -e ~/.ssh/authorized_keys ] && grep -q "no-agent-forwarding" ~/.ssh/authorized_keys
     then
