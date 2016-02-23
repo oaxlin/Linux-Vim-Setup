@@ -36,12 +36,7 @@ function git-branch-prompt {
             printf "\[\e[1;32m\]%s\[\e[0m\] " $branch;
         fi
     elif [ -e 'CVS/Root' ]; then
-        local cvsdiff=`cvs -q diff --brief`
-        if [ "$cvsdiff" != "" ]; then
-            printf "\[\e[1;31m\]%s\[\e[0m\] " 'CVS';
-        else
-            printf "\[\e[1;32m\]%s\[\e[0m\] " 'CVS';
-        fi
+        printf "\[\e[1;32m\]%s\[\e[0m\] " 'CVS';
     fi
 }
 function get_prompt {
