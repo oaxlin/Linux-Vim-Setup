@@ -14,6 +14,7 @@ my $files = {
 };
 
 if (qx{ls ~/.git-templates/hooks/pre-commit}) {
+    # running the user file would potentially be a security risk.  so instead let's just take a peek to make sure they are the same
     my ($me) = qx{md5 $0} =~ /([^ ]+)$/;
     my ($you) = qx{md5 ~/.git-templates/hooks/pre-commit} =~ /([^ ]+)$/;
     if ($you ne $me) {
@@ -22,7 +23,7 @@ if (qx{ls ~/.git-templates/hooks/pre-commit}) {
         print "##   WARING: Your pre-commit hook appears to be out of date\n";
         print "##\n";
         print "###############################################################\n";
-
+        $nb_errors++;
     }
 }
 
