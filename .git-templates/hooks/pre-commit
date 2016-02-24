@@ -58,7 +58,7 @@ if (my $num = scalar @{$files->{'perl'}}) {
     if ($num = scalar @passed) {
         # perlcritic checks on something that failes "perl -c" is kinda pointless
         print "Checking perlcritic ($num files)\n";
-        my $out = qx{perlcritic --quiet @{$files->{'perl'}}};
+        my $out = qx{perlcritic --quiet @passed};
         if ($?) {
             print $out;
             $nb_errors++;
