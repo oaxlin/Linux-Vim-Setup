@@ -15,11 +15,11 @@ my $files = {
 
 for my $filepath (`git diff --cached --name-only`) {
     chomp $filepath;
-    open my $fh, "<" . $filepath;
-
     my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `/usr/bin/head --lines 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
-        $nb_errors++ if ($?); # just make sure the backtick script ran successfully
+    my $head = qx{/usr/bin/head -n 1 $filepath};
+
+    $nb_errors++ if ($?); # just make sure the backtick script ran successfully
+    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
         push @{$files->{'perl'}}, $filepath;
     }
     if ( $file_infos[2] =~ /^\.(sql)$/) {
