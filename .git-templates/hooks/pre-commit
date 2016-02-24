@@ -15,8 +15,9 @@ my $files = {
 
 if (qx{ls ~/.git-templates/hooks/pre-commit}) {
     # running the user file would potentially be a security risk.  so instead let's just take a peek to make sure they are the same
-    my ($me) = qx{md5 $0} =~ /([^ ]+)$/;
-    my ($you) = qx{md5 ~/.git-templates/hooks/pre-commit} =~ /([^ ]+)$/;
+    my $prog = qx{which md5} ? 'md5 -r' : 'md5sum'; # mac vs linux
+    my ($me) = qx{$prog $0} =~ /^([^ ]+)/;
+    my ($you) = qx{$prog ~/.git-templates/hooks/pre-commit} =~ /^([^ ]+)/;
     if ($you ne $me) {
         print "###############################################################\n";
         print "##\n";
