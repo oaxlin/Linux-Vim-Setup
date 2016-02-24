@@ -19,6 +19,7 @@ for my $filepath (`git diff --cached --name-only`) {
 
     my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
     if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `/usr/bin/head --lines 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
+        $nb_errors++ if ($?); # just make sure the backtick script ran successfully
         push @{$files->{'perl'}}, $filepath;
     }
     if ( $file_infos[2] =~ /^\.(sql)$/) {
