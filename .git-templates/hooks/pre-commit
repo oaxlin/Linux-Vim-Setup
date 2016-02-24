@@ -6,17 +6,58 @@ use File::Basename;
 my $nb_errors = 0;
 
 # run checks on each file
+my $files = {
+    perl => [],
+    html => [],
+    sql  => [],
+    # other file types can be expanded/checked if needed
+};
+
 for my $filepath (`git diff --cached --name-only`) {
     chomp $filepath;
+    open my $fh, "<" . $filepath;
+
     my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `head -n 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
-        print "Checking perlcritic: $filepath\n";
-        my $out = qx{perlcritic $filepath};
+    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || `/usr/bin/head --lines 1 $filepath` =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
+        push @{$files->{'perl'}}, $filepath;
+    }
+    if ( $file_infos[2] =~ /^\.(sql)$/) {
+        push @{$files->{'sql'}}, $filepath;
+    }
+    if ( $file_infos[2] =~ /^\.(html?)$/) {
+        push @{$files->{'html'}}, $filepath;
+    }
+}
+
+if (my $num = scalar @{$files->{'perl'}}) {
+    print "Checking perl -c ($num files)\n";
+    my @passed;
+    foreach my $file (@{$files->{'perl'}}) {
+        my $out = qx{perl -c $file 2>&1};
+        if ($?) {
+            print $out;
+            $nb_errors++;
+        } else {
+            push @passed, $file;
+        }
+    }
+    if ($num = scalar @passed) {
+        # perlcritic checks on something that failes "perl -c" is kinda pointless
+        print "Checking perlcritic ($num files)\n";
+        my $out = qx{perlcritic --quiet @{$files->{'perl'}}};
         if ($?) {
             print $out;
             $nb_errors++;
         }
     }
+}
+
+if (my $num = scalar @{$files->{'html'}}) {
+    #TODO
+}
+
+if (my $num = scalar @{$files->{'sql'}}) {
+    #TODO
 }
 
 if ( $nb_errors ) {
