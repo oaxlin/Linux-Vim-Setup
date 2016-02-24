@@ -13,6 +13,10 @@ my $files = {
     # other file types can be expanded/checked if needed
 };
 
+my $git_root = `git rev-parse --show-toplevel`;
+chomp $git_root;
+$ENV{'PERL5LIB'} ||= "$git_root/lib";
+
 if (qx{ls ~/.git-templates/hooks/pre-commit}) {
     # running the user file would potentially be a security risk.  so instead let's just take a peek to make sure they are the same
     qx{which md5 2>&1 > /dev/null};
