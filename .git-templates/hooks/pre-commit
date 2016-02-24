@@ -13,6 +13,19 @@ my $files = {
     # other file types can be expanded/checked if needed
 };
 
+if (qx{ls ~/.git-templates/hooks/pre-commit}) {
+    my ($me) = qx{md5 $0} =~ /([^ ]+)$/;
+    my ($you) = qx{md5 ~/.git-templates/hooks/pre-commit} =~ /([^ ]+)$/;
+    if ($you ne $me) {
+        print "###############################################################\n";
+        print "##\n";
+        print "##   WARING: Your pre-commit hook appears to be out of date\n";
+        print "##\n";
+        print "###############################################################\n";
+
+    }
+}
+
 for my $filepath (`git diff --cached --name-only`) {
     chomp $filepath;
     my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
