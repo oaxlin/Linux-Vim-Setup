@@ -50,10 +50,10 @@ for my $filepath ( @allfiles ) {
         }
     }
     if (!-e $filepath) {
-        print "File not found: $filepath\n";
+        print "pre-commit: file not found: $filepath\n";
         $nb_errors++;
     } elsif (!$use_cnt) {
-        print "Unknown file type: $filepath\n";
+        print "pre-commit: unknown file type: $filepath\n";
         $nb_errors++;
     }
 }
@@ -64,7 +64,7 @@ foreach my $package ( sort keys %$files ) {
 }
 
 if ( $nb_errors ) {
-    print "Aborting commit due to pre-commit hook failure.  You can still commit with the --no-verify argument.\n";
+    print "pre-commit: Aborting commit due to pre-commit hook failure.  You can still commit with the --no-verify argument.\n";
     exit 1;
 }
 exit 0;
