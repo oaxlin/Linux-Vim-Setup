@@ -1,21 +1,25 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use File::Basename;
 
 my $nb_errors = 0;
 
 # run checks on each file
 my $files = {
-    perl => [],
-    html => [],
-    sql  => [],
+    'Git::Hooks::PerlCritic'  => [],
     # other file types can be expanded/checked if needed
 };
 
 my $git_root = `git rev-parse --show-toplevel`;
 chomp $git_root;
-$ENV{'PERL5LIB'} ||= "$git_root/lib";
+exit 1 if (!$git_root);
+if (-e "$git_root/.git-perl5lib") {
+    my $tmp = `cat $git_root/.git-perl5lib`;
+    chop($tmp);
+    $ENV{'PERL5LIB'} = $tmp =~ s/\$PERL5LIB// ? ($ENV{'PERL5LIB'}//'').$tmp : $tmp;
+} else {
+    $ENV{'PERL5LIB'} ||= "$git_root/lib";
+}
 
 if (qx{ls ~/.git-templates/hooks/pre-commit}) {
     # running the user file would potentially be a security risk.  so instead let's just take a peek to make sure they are the same
@@ -26,59 +30,37 @@ if (qx{ls ~/.git-templates/hooks/pre-commit}) {
     if ($you ne $me) {
         print "###############################################################\n";
         print "##\n";
-        print "##   WARING: Your pre-commit hook appears to be out of date\n";
+        print "##   WARNING: Your pre-commit hook appears to be out of date\n";
         print "##\n";
         print "###############################################################\n";
+        $nb_errors++
+    }
+}
+
+use List::MoreUtils qw(uniq);
+my @allfiles = uniq sort `git diff --cached --name-only`,@ARGV; # simple way to allow this via command line
+chomp @allfiles;
+for my $filepath ( @allfiles ) {
+    # we pre-lookup so that tools that accept a list of files can do so for better performance
+    my $use_cnt = 0;
+    foreach my $package ('Git::Hooks::PerlCompile','Git::Hooks::PerlCritic') {
+        if (eval{$package->will_check($filepath)}) { # could fit into more than one of these
+            push @{$files->{$package}}, $filepath;
+            $use_cnt++;
+        }
+    }
+    if (!-e $filepath) {
+        print "File not found: $filepath\n";
+        $nb_errors++;
+    } elsif (!$use_cnt) {
+        print "Unknown file type: $filepath\n";
         $nb_errors++;
     }
 }
 
-for my $filepath (`git diff --cached --name-only`) {
-    chomp $filepath;
-    my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-    my $head = qx{/usr/bin/head -n 1 $filepath};
-    $nb_errors++ if ($?); # just make sure the backtick script ran successfully
-
-    if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
-        push @{$files->{'perl'}}, $filepath;
-    }
-    if ( $file_infos[2] =~ /^\.(sql)$/) {
-        push @{$files->{'sql'}}, $filepath;
-    }
-    if ( $file_infos[2] =~ /^\.(html?)$/) {
-        push @{$files->{'html'}}, $filepath;
-    }
-}
-
-if (my $num = scalar @{$files->{'perl'}}) {
-    print "Checking perl -c ($num files)\n";
-    my @passed;
-    foreach my $file (@{$files->{'perl'}}) {
-        my $out = qx{perl -c $file 2>&1};
-        if ($?) {
-            print $out;
-            $nb_errors++;
-        } else {
-            push @passed, $file;
-        }
-    }
-    if ($num = scalar @passed) {
-        # perlcritic checks on something that failes "perl -c" is kinda pointless
-        print "Checking perlcritic ($num files)\n";
-        my $out = qx{perlcritic --quiet @passed};
-        if ($?) {
-            print $out;
-            $nb_errors++;
-        }
-    }
-}
-
-if (my $num = scalar @{$files->{'html'}}) {
-    #TODO
-}
-
-if (my $num = scalar @{$files->{'sql'}}) {
-    #TODO
+foreach my $package ( sort keys %$files ) {
+    next unless scalar @{$files->{$package}};
+    $nb_errors++ if !eval{$package->check(@{$files->{$package}})};
 }
 
 if ( $nb_errors ) {
@@ -86,3 +68,62 @@ if ( $nb_errors ) {
     exit 1;
 }
 exit 0;
+
+package Git::Hooks::PerlCompile;
+    use File::Basename;
+
+    sub will_check {
+        my $self = shift;
+        my $filepath = shift;
+        my $fh;
+        my $head = '';
+        if (-e $filepath && !-d $filepath && eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
+            $head = <$fh>;
+            close $fh;
+        }
+        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
+        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
+            return 1;
+        }
+        return 0;
+    }
+
+    sub check {
+        my $self = shift;
+        my $errors = 0;
+        if (my $num = scalar @_) {
+            print "Checking perl -c ($num files)\n";
+            foreach my $file (@_) {
+                my $out = qx{perl -c -- $file 2>&1};
+                if ($?) {
+                    print $out;
+                    $errors++;
+                }
+            }
+        }
+        return !$errors;
+    }
+
+1;
+
+package Git::Hooks::PerlCritic;
+    require Git::Hooks::PerlCompile;
+
+    sub will_check { my $self = shift; Git::Hooks::PerlCompile->will_check(@_); }
+
+    sub check {
+        my $self = shift;
+        my $errors = 0;
+        if (my $num = scalar @_) {
+            # perlcritic checks on something that failes "perl -c" is kinda pointless
+            print "Checking perlcritic ($num files)\n";
+            my $out = qx{perlcritic --quiet -- @_};
+            if ($?) {
+                print $out;
+                $errors++;
+            }
+        }
+        return !$errors;
+    }
+
+1;
