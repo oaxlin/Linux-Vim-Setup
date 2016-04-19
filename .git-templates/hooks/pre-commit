@@ -37,16 +37,34 @@ if (qx{ls ~/.git-templates/hooks/pre-commit}) {
     }
 }
 
+my @extra_files; # simple way to allow usage via command line
+{
+    use File::Find;
+    no warnings 'File::Find';
+    my $git_root_quoted = quotemeta $git_root;
+    find({
+            follow_fast => 1,
+            wanted => sub {
+                my $f = $_;
+                return if $File::Find::fullname =~ /^$git_root_quoted\/\.git(\/.*)?$/; # avoid .git directory
+                push @extra_files, $File::Find::name if ! -d $f
+            },
+    }, @ARGV);
+}
+
 use List::MoreUtils qw(uniq);
-my @allfiles = uniq sort `git diff --cached --name-only`,@ARGV; # simple way to allow this via command line
+my @allfiles = uniq sort `git diff --cached --name-only`,@extra_files;
 chomp @allfiles;
 for my $filepath ( @allfiles ) {
     # we pre-lookup so that tools that accept a list of files can do so for better performance
     my $use_cnt = 0;
-    foreach my $package ('Git::Hooks::PerlCompile','Git::Hooks::PerlCritic') {
+    foreach my $package ('Git::Hooks::Compile::Perl','Git::Hooks::PerlCritic','Git::Hooks::Compile::Bash','Git::Hooks::Compile::Sh') {
         if (eval{$package->will_check($filepath)}) { # could fit into more than one of these
             push @{$files->{$package}}, $filepath;
             $use_cnt++;
+        } elsif ($@) {
+            warn $@;
+            $nb_errors++;
         }
     }
     if (!-e $filepath) {
@@ -69,7 +87,61 @@ if ( $nb_errors ) {
 }
 exit 0;
 
-package Git::Hooks::PerlCompile;
+package Git::Hooks::Compile::ShellCommon;
+    use File::Basename;
+
+    sub will_check {
+        my $self = shift;
+        my $shell = shift || die 'Shell name that supports -n required (sh / bash)';
+        my $filepath = shift;
+        my $fh;
+        my $head = '';
+        if (-e $filepath && !-d $filepath && eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
+            $head = <$fh>;
+            close $fh;
+        }
+        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
+        my $shell_quoted = quotemeta $shell;
+        if ( $head =~ /^\#\!.*[\/\ ]$shell_quoted$/ ) {
+            return 1;
+        }
+        return 0;
+    }
+
+    sub check {
+        my $self = shift;
+        my $shell = shift || die 'Shell name that supports -n required (sh / bash)';
+        my $errors = 0;
+        if (my $num = scalar @_) {
+            print "Checking $shell -n ($num files)\n";
+            foreach my $file (@_) {
+                my $out = qx{$shell -n -- $file 2>&1};
+                if ($?) {
+                    print $out;
+                    $errors++;
+                }
+            }
+        }
+        return !$errors;
+    }
+
+1;
+
+package Git::Hooks::Compile::Bash;
+  require Git::Hooks::Compile::ShellCommon;
+  sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('bash',@_); }
+  sub check { shift; Git::Hooks::Compile::ShellCommon->check('bash',@_); }
+
+1;
+
+package Git::Hooks::Compile::Sh;
+  require Git::Hooks::Compile::ShellCommon;
+  sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('bash',@_); }
+  sub check { shift; Git::Hooks::Compile::ShellCommon->check('bash',@_); }
+
+1;
+
+package Git::Hooks::Compile::Perl;
     use File::Basename;
 
     sub will_check {
@@ -82,7 +154,7 @@ package Git::Hooks::PerlCompile;
             close $fh;
         }
         my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*perl)$/ ) {
+        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*[\/\ ]perl)$/ ) {
             return 1;
         }
         return 0;
@@ -107,9 +179,9 @@ package Git::Hooks::PerlCompile;
 1;
 
 package Git::Hooks::PerlCritic;
-    require Git::Hooks::PerlCompile;
+    require Git::Hooks::Compile::Perl;
 
-    sub will_check { my $self = shift; Git::Hooks::PerlCompile->will_check(@_); }
+    sub will_check { my $self = shift; Git::Hooks::Compile::Perl->will_check(@_); }
 
     sub check {
         my $self = shift;
