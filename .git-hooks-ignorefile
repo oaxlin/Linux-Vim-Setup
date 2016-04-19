@@ -1,0 +1,12 @@
+README=Git::Hooks::IgnoreFile
+.bashrc=Git::Hooks::Compile::Bash
+.vimrc=Git::Hooks::IgnoreFile
+.ssh/sockets/README=Git::Hooks::IgnoreFile
+.ssh/config=Git::Hooks::IgnoreFile
+.git-hooks-ignorefile=Git::Hooks::IgnoreFile
+.vim/plugin/autoswap_mac.vim=Git::Hooks::IgnoreFile
+.vim/plugin/colalignsimple.vim=Git::Hooks::IgnoreFile
+.vim/plugin/eqalignsimple.vim=Git::Hooks::IgnoreFile
+.vim/plugin/foldsearches.vim=Git::Hooks::IgnoreFile
+.vim/plugin/smartcom.vim=Git::Hooks::IgnoreFile
+
