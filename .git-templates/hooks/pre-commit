@@ -46,6 +46,8 @@ my @extra_files; # simple way to allow usage via command line
             follow_fast => 1,
             wanted => sub {
                 my $f = $_;
+                # Nice $File::Find::fullname is only defined if the original filename was a directory...
+                # this means we will always add specific files to @extra_files, even if they are in the .git dir
                 return if (($File::Find::fullname||'') =~ /^$git_root_quoted\/\.git(\/.*)?$/); # avoid .git directory
                 push @extra_files, $File::Find::name if ! -d $f
             },
