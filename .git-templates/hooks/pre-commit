@@ -46,10 +46,10 @@ my @extra_files; # simple way to allow usage via command line
             follow_fast => 1,
             wanted => sub {
                 my $f = $_;
-                return if $File::Find::fullname =~ /^$git_root_quoted\/\.git(\/.*)?$/; # avoid .git directory
+                return if (($File::Find::fullname||'') =~ /^$git_root_quoted\/\.git(\/.*)?$/); # avoid .git directory
                 push @extra_files, $File::Find::name if ! -d $f
             },
-    }, @ARGV);
+    }, @ARGV) if scalar @ARGV;
 }
 
 use List::MoreUtils qw(uniq);
