@@ -139,7 +139,7 @@ package Git::Hooks::Compile::Bash;
 package Git::Hooks::Compile::Sh;
   require Git::Hooks::Compile::ShellCommon;
   sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('bash',@_); }
-  sub check { shift; Git::Hooks::Compile::ShellCommon->check('bash',@_); }
+  sub check { shift; Git::Hooks::Compile::ShellCommon->check('sh',@_); }
 
 1;
 
