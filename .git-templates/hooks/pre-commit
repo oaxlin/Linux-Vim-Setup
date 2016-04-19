@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+use Module::Loaded;
 
 my $nb_errors = 0;
 
@@ -60,9 +61,16 @@ chomp @allfiles;
 for my $filepath ( @allfiles ) {
     # we pre-lookup so that tools that accept a list of files can do so for better performance
     my $use_cnt = 0;
-    foreach my $package ('Git::Hooks::Compile::Perl','Git::Hooks::PerlCritic','Git::Hooks::Compile::Bash','Git::Hooks::Compile::Sh') {
-        if (eval{$package->will_check($filepath)}) { # could fit into more than one of these
-            push @{$files->{$package}}, $filepath;
+    foreach my $package (
+        'Git::Hooks::Compile::Perl',
+        'Git::Hooks::PerlCritic',
+        'Git::Hooks::Compile::Bash',
+        'Git::Hooks::Compile::Sh',
+        'Git::Hooks::IgnoreFile',
+    ) {
+        if (my $ret = eval{$package->will_check($filepath)}) { # could fit into more than one of these
+            $ret = [$package] unless ref $ret eq 'ARRAY'; # a list of package names
+            push @{$files->{$_}}, $filepath foreach @$ret;
             $use_cnt++;
         } elsif ($@) {
             warn $@;
@@ -79,8 +87,17 @@ for my $filepath ( @allfiles ) {
 }
 
 foreach my $package ( sort keys %$files ) {
-    next unless scalar @{$files->{$package}};
-    $nb_errors++ if !eval{$package->check(@{$files->{$package}})};
+    my $num = scalar @{$files->{$package}};
+    next unless $num;
+    print "Checking $package ($num files)\n";
+    if (!$package->can('check')) {
+        print "$package: check sub not found\n";
+        $nb_errors++;
+    } elsif (!eval{$package->check(@{$files->{$package}})}) {
+        my $e = $@;
+        print "$package: $e\n" if $e;
+        $nb_errors++;
+    }
 }
 
 if ( $nb_errors ) {
@@ -88,6 +105,48 @@ if ( $nb_errors ) {
     exit 1;
 }
 exit 0;
+
+package Git::Hooks::IgnoreFile;
+    our $forced_files;
+    sub should_force {
+        my $self = shift;
+        my $package = shift;
+        my $file = shift;
+        if (! defined $forced_files) {
+            $forced_files = {};
+            my $git_root = `git rev-parse --show-toplevel`;
+            chomp $git_root;
+            die "Could not find git_root" unless $git_root;
+            if (-e "$git_root/.git-hooks-ignorefile") {
+                open(my $fh, "<", "$git_root/.git-hooks-ignorefile") or die "cannot open < $git_root/.git-hooks-ignorefile: $!";
+                while (my $line = <$fh>) {
+                    chomp $line;
+                    if ($line =~ s/^([^\=]+)\=//) {
+                        my $p = $1;
+                        if ($p) {
+                            push @{$forced_files->{$_}}, $line foreach ($p,'./'.$p);
+                        }
+                    }
+                }
+                close $fh;
+            }
+        }
+        return $forced_files->{$file} if exists $forced_files->{$file};
+        return 0;
+    }
+
+    sub will_check {
+        my $self = shift;
+        my $filepath = shift;
+        return Git::Hooks::IgnoreFile->should_force(__PACKAGE__,$filepath);
+    }
+
+    sub check {
+        my $self = shift;
+        return 1; # always returns true, so you can force to this
+    }
+
+1;
 
 package Git::Hooks::Compile::ShellCommon;
     use File::Basename;
@@ -115,7 +174,6 @@ package Git::Hooks::Compile::ShellCommon;
         my $shell = shift || die 'Shell name that supports -n required (sh / bash)';
         my $errors = 0;
         if (my $num = scalar @_) {
-            print "Checking $shell -n ($num files)\n";
             foreach my $file (@_) {
                 my $out = qx{$shell -n -- $file 2>&1};
                 if ($?) {
@@ -138,13 +196,14 @@ package Git::Hooks::Compile::Bash;
 
 package Git::Hooks::Compile::Sh;
   require Git::Hooks::Compile::ShellCommon;
-  sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('bash',@_); }
+  sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('sh',@_); }
   sub check { shift; Git::Hooks::Compile::ShellCommon->check('sh',@_); }
 
 1;
 
 package Git::Hooks::Compile::Perl;
     use File::Basename;
+    require Git::Hooks::IgnoreFile;
 
     sub will_check {
         my $self = shift;
@@ -166,7 +225,6 @@ package Git::Hooks::Compile::Perl;
         my $self = shift;
         my $errors = 0;
         if (my $num = scalar @_) {
-            print "Checking perl -c ($num files)\n";
             foreach my $file (@_) {
                 my $out = qx{perl -c -- $file 2>&1};
                 if ($?) {
@@ -190,7 +248,6 @@ package Git::Hooks::PerlCritic;
         my $errors = 0;
         if (my $num = scalar @_) {
             # perlcritic checks on something that failes "perl -c" is kinda pointless
-            print "Checking perlcritic ($num files)\n";
             my $out = qx{perlcritic --quiet -- @_};
             if ($?) {
                 print $out;
