@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Module::Loaded;
 
 my $nb_errors = 0;
 
