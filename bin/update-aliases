@@ -1,6 +1,13 @@
 #!/bin/bash
+echo -n 'Updating git aliases/config ... '
 git config --global user.name 'Jason Terry'
 git config --global alias.changed '!echo "Files changed in branch: "`git rev-parse --abbrev-ref HEAD` && git ls-files . --exclude-standard --others  --deleted -v -m'
 git config --global alias.ls      'log --date=short --pretty=format:"%C(yellow)%h\ %cd%Cred%d\ %Creset%s%Cblue\ [%cn]" --decorate'
 git config --global alias.ll      'log --date=short --pretty=format:"%C(yellow)%h\ %cd%Cred%d\ %Creset%s%Cblue\ [%cn]" --decorate --numstat'
 git config --global alias.la      '!git config -l | grep alias | cut -c 7-'
+git config --global core.excludesfile ~/.gitignore
+git config --global init.templatedir '~/.git-templates'
+git config --global alias.c checkout
+git config --global alias.b '!branches=`git branch`; while read -r branch; do clean=${branch//\*\ /}; description=`git config branch.$clean.description`; if [ "${branch::1}" == "*" ]; then printf "\033[0;31m%-16s\033[0m %s\n" "$branch" "$description"; else printf "  %-14s %s\n" "$branch" "$description"; fi; done <<< "$branches"'
+echo 'Done';
+
