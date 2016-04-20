@@ -9,4 +9,4 @@ README=Git::Hooks::IgnoreFile
 .vim/plugin/eqalignsimple.vim=Git::Hooks::IgnoreFile
 .vim/plugin/foldsearches.vim=Git::Hooks::IgnoreFile
 .vim/plugin/smartcom.vim=Git::Hooks::IgnoreFile
-
+.gitignore=Git::Hooks::IgnoreFile
