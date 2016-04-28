@@ -49,6 +49,12 @@ my @extra_files; # simple way to allow usage via command line
                 # Nice $File::Find::fullname is only defined if the original filename was a directory...
                 # this means we will always add specific files to @extra_files, even if they are in the .git dir
                 return if (($File::Find::fullname||'') =~ /^$git_root_quoted\/\.git(\/.*)?$/); # avoid .git directory
+                if (!-e $f) {
+                    # specifically check this to avoid typos on the command line... since norrmal hooks skip deleted
+                    # files in order to accommodate "git rm"
+                    print "Could not find command line file: $f\n";
+                    $nb_errors++;
+                }
                 push @extra_files, $File::Find::name if ! -d $f
             },
     }, @ARGV) if scalar @ARGV;
@@ -66,6 +72,7 @@ for my $filepath ( @allfiles ) {
         'Git::Hooks::Compile::Bash',
         'Git::Hooks::Compile::Sh',
         'Git::Hooks::IgnoreFile',
+        'Git::Hooks::DeletedFile',
     ) {
         if (my $ret = eval{$package->will_check($filepath)}) { # could fit into more than one of these
             $ret = [$package] unless ref $ret eq 'ARRAY'; # a list of package names
@@ -76,10 +83,7 @@ for my $filepath ( @allfiles ) {
             $nb_errors++;
         }
     }
-    if (!-e $filepath) {
-        print "pre-commit: file not found: $filepath\n";
-        $nb_errors++;
-    } elsif (!$use_cnt) {
+    if (!$use_cnt) {
         print "pre-commit: unknown file type: $filepath\n";
         $nb_errors++;
     }
@@ -104,6 +108,25 @@ if ( $nb_errors ) {
     exit 1;
 }
 exit 0;
+
+package Git::Hooks::DeletedFile;
+    sub will_check {
+        my $self = shift;
+        my $filename = shift;
+        return 1 if !-e $filename;
+        return 0;
+    }
+    sub check {
+        my $self = shift;
+        my $errors = 0;
+        if (my $num = scalar @_) {
+            foreach my $file (@_) {
+                $errors++ if -e $file;
+            }
+        }
+        return !$errors;
+    }
+1;
 
 package Git::Hooks::IgnoreFile;
     our $forced_files;
@@ -140,10 +163,7 @@ package Git::Hooks::IgnoreFile;
         return Git::Hooks::IgnoreFile->should_force(__PACKAGE__,$filepath);
     }
 
-    sub check {
-        my $self = shift;
-        return 1; # always returns true, so you can force to this
-    }
+    sub check { return 1; } # always returns true, so you can force to this
 
 1;
 
@@ -154,9 +174,10 @@ package Git::Hooks::Compile::ShellCommon;
         my $self = shift;
         my $shell = shift || die 'Shell name that supports -n required (sh / bash)';
         my $filepath = shift;
+        return 0 if !-e $filepath || -d $filepath;
         my $fh;
         my $head = '';
-        if (-e $filepath && !-d $filepath && eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
+        if (eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
             $head = <$fh>;
             close $fh;
         }
@@ -207,9 +228,10 @@ package Git::Hooks::Compile::Perl;
     sub will_check {
         my $self = shift;
         my $filepath = shift;
+        return 0 if !-e $filepath || -d $filepath;
         my $fh;
         my $head = '';
-        if (-e $filepath && !-d $filepath && eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
+        if (eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
             $head = <$fh>;
             close $fh;
         }
