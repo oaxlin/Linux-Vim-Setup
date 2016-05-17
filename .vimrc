@@ -24,12 +24,12 @@ nmap yw yaw
 
 if isdirectory("/dev/shm")
     silent !mkdir /dev/shm/$USER\_vim > /dev/null 2>&1
-    let &directory='/dev/shm/'.$USER.'_vim'
-    let &backupdir='/dev/shm/'.$USER.'_vim'
+    let &directory='/dev/shm/'.$USER.'_vim//'
+    let &backupdir='/dev/shm/'.$USER.'_vim//'
 else
     silent !mkdir /tmp/$USER\_vim > /dev/null 2>&1
-    let &directory='/tmp/'.$USER.'_vim'
-    let &backupdir='/tmp/'.$USER.'_vim'
+    let &directory='/tmp/'.$USER.'_vim//'
+    let &backupdir='/tmp/'.$USER.'_vim//'
 endif
 
 set wildmode=list:longest,full
