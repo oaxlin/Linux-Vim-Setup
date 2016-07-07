@@ -3,6 +3,8 @@
 " Maintainer:	Damian Conway
 " License:	This file is placed in the public domain.
 
+"===[ See 'in_your_.vimrc' for interface key bindings ]====
+
 " If already loaded, we're done...
 if exists("loaded_foldsearch")
     finish
