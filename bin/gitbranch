@@ -1,0 +1,11 @@
+#!/bin/bash
+branches=`git branch`;
+while read -r branch;
+do clean=${branch//\*\ /};
+   description=`git config branch.$clean.description`;
+   if [ "${branch::1}" == "*" ]; then
+       printf "\033[0;31m%-16s\033[0m %s\n" "$branch" "$description";
+   else
+       printf "  %-14s %s\n" "$branch" "$description";
+   fi;
+done <<< "$branches"

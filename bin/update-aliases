@@ -8,6 +8,6 @@ git config --global alias.la      '!git config -l | grep alias | cut -c 7-'
 git config --global core.excludesfile ~/.gitignore
 git config --global init.templatedir '~/.git-templates'
 git config --global alias.c checkout
-git config --global alias.b '!branches=`git branch`; while read -r branch; do clean=${branch//\*\ /}; description=`git config branch.$clean.description`; if [ "${branch::1}" == "*" ]; then printf "\033[0;31m%-16s\033[0m %s\n" "$branch" "$description"; else printf "  %-14s %s\n" "$branch" "$description"; fi; done <<< "$branches"'
+git config --global alias.b '!~/bin/gitbranch'
 echo 'Done';
 
