@@ -7,6 +7,9 @@ set nocompatible
 set ts=4
 set sw=4
 
+set t_Co=256
+highlight Comment      ctermfg=026
+
 set expandtab
 
 set showmatch " show matching brackets
