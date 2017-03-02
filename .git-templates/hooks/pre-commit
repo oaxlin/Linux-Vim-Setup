@@ -236,7 +236,7 @@ package Git::Hooks::Compile::Perl;
             close $fh;
         }
         my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*[\/\ ]perl)$/ ) {
+        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*[\/\ ]perl\b.*)$/) {
             return 1;
         }
         return 0;
@@ -247,7 +247,7 @@ package Git::Hooks::Compile::Perl;
         my $errors = 0;
         if (my $num = scalar @_) {
             foreach my $file (@_) {
-                my $out = qx{perl -c -- $file 2>&1};
+                my $out = qx{perl -cT -w -- $file 2>&1};
                 if ($?) {
                     print $out;
                     $errors++;
