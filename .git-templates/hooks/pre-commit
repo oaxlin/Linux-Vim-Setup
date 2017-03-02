@@ -67,6 +67,7 @@ for my $filepath ( @allfiles ) {
     # we pre-lookup so that tools that accept a list of files can do so for better performance
     my $use_cnt = 0;
     foreach my $package (
+        'Git::Hooks::Compile::YAML',
         'Git::Hooks::Compile::Perl',
         'Git::Hooks::PerlCritic',
         'Git::Hooks::Compile::Bash',
@@ -218,6 +219,41 @@ package Git::Hooks::Compile::Sh;
   require Git::Hooks::Compile::ShellCommon;
   sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('sh',@_); }
   sub check { shift; Git::Hooks::Compile::ShellCommon->check('sh',@_); }
+
+1;
+
+package Git::Hooks::Compile::YAML;
+    use File::Basename;
+    require Git::Hooks::IgnoreFile;
+
+    sub will_check {
+        my $self = shift;
+        my $filepath = shift;
+        return 0 if !-e $filepath || -d $filepath;
+        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
+        if ( $file_infos[2] =~ /^\.(yml)$/ ) {
+            return 1;
+        }
+        return 0;
+    }
+
+    sub check {
+        my $self = shift;
+        my $errors = 0;
+        if (my $num = scalar @_) {
+            require YAML;
+            foreach my $file (@_) {
+                my $out = eval{ YAML::LoadFile($file); };
+                my $e = $@;
+                if ($e) {
+                    $e =~ s/[\n\r\s]*at .*?YAML\.pm line \d+\s*/\n/; # useless info
+                    print $file."\n   ".$e;
+                    $errors++;
+                }
+            }
+        }
+        return !$errors;
+    }
 
 1;
 
