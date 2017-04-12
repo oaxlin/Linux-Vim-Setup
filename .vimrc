@@ -260,3 +260,10 @@ iab    Jarrko  Jarkko
 iab    jarrko  jarkko
 iab      moer  more
 iab  previosu  previous
+
+"=====[ Make vimdiff colors a lot easier to read ]=======================
+
+if &diff
+    highlight Normal term=none cterm=none ctermfg=White ctermbg=Black gui=none guifg=White guibg=Black
+endif
+
