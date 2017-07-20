@@ -1,0 +1,39 @@
+severity = 5
+verbose = 9
+
+; eventually we will want to replace anything excluded with our own tests
+
+[ControlStructures::ProhibitCascadingIfElse]
+max_elsif = 10
+
+[ControlStructures::ProhibitDeepNests]
+max_nests = 7
+
+[NamingConventions::ProhibitAmbiguousNames]
+forbid = abstract close contract left no record right set
+
+[Subroutines::ProhibitExcessComplexity]                  ; the default implementation seems to estimate mccabe a bit higher
+max_mccabe = 35
+[-Subroutines::ProhibitExplicitReturnUndef]              ; could theoretically check if sub is intended to only do success or failure
+
+[TestingAndDebugging::ProhibitNoStrict]
+allow = refs
+
+[ValuesAndExpressions::RequireNumberSeparators]
+min_value = 100_000
+
+[ValuesAndExpressions::ProhibitMagicNumbers]
+allowed_values = -1 0..31 60 100 300 1900 3600 86400 32 255 all_integers
+
+[Variables::ProhibitPackageVars]
+add_packages = Data::Dumper config Time Carp
+
+[Variables::ProhibitPunctuationVars]
+allow = $@ $! $0 $$ $/ $|
+
+[Variables::RequireLocalizedPunctuationVars]
+allow = %ENV
+
+[InputOutput::ProhibitBacktickOperators] ; only whine about backticks in void context
+only_in_void_context = 1
+
