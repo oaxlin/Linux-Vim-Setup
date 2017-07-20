@@ -272,7 +272,7 @@ package Git::Hooks::Compile::Perl;
             close $fh;
         }
         my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*[\/\ ]perl\b.*)$/) {
+        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*[\/\ ]*perl\b.*)$/) {
             return 1;
         }
         return 0;
