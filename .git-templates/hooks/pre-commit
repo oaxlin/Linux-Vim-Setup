@@ -70,6 +70,7 @@ for my $filepath ( @allfiles ) {
         'Git::Hooks::Compile::YAML',
         'Git::Hooks::Compile::Perl',
         'Git::Hooks::PerlCritic',
+        'Git::Hooks::Pod::Checker',
         'Git::Hooks::Compile::Bash',
         'Git::Hooks::Compile::Sh',
         'Git::Hooks::IgnoreFile',
@@ -304,11 +305,52 @@ package Git::Hooks::PerlCritic;
         my $self = shift;
         my $errors = 0;
         if (my $num = scalar @_) {
-            # perlcritic checks on something that failes "perl -c" is kinda pointless
+            # perlcritic checks on something that fails "perl -c" is kinda pointless
             my $out = qx{perlcritic --quiet -- @_};
             if ($?) {
                 print $out;
                 $errors++;
+            }
+        }
+        return !$errors;
+    }
+
+1;
+package Git::Hooks::Pod::Checker;
+    use Pod::Checker;
+    use File::Basename;
+    use IO::Scalar;
+
+    sub will_check {
+        my $self = shift;
+        my $filepath = shift;
+        return 0 if !-e $filepath || -d $filepath;
+        my $fh;
+        my $head = '';
+        if (eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
+            $head = <$fh>;
+            close $fh;
+        }
+        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
+        if ( $file_infos[2] =~ /^\.pod$/ || $head =~ /^=pod$/) {
+            return 1;
+        }
+        return 0;
+    }
+
+
+    sub check {
+        my $self = shift;
+        my $errors = 0;
+        if (my $num = scalar @_) {
+            foreach my $file (@_) {
+                my $out;
+                my $fh = new IO::Scalar \$out;
+                my $num_errors = podchecker($file, $fh);
+                if ($num_errors) {
+                    print $file."\n   contains POD errors";
+                    $errors++;
+                }
             }
         }
         return !$errors;
