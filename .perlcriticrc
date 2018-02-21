@@ -41,8 +41,8 @@ only_in_void_context = 1
 [-BuiltinFunctions::ProhibitSleepViaSelect]
 
 ; no useless double quotes (but do allow doubles to avoid escaping singles)
-[ValuesAndExpressions::ProhibitInterpolationOfLiterals]
-allow_if_string_contains_single_quote = 1
+[-ValuesAndExpressions::ProhibitInterpolationOfLiterals]
+;allow_if_string_contains_single_quote = 1
 
 ; we generally know what we're doing
 [-ControlStructures::ProhibitPostfixControls]
@@ -64,6 +64,7 @@ script_sections = NAME
 
 ; we do these a lot and know what we're doing
 [-ValuesAndExpressions::ProhibitEmptyQuotes]
+[-CodeLayout::ProhibitParensWithBuiltins]
 
 ; TODO - write one that checks for single line
 [-Subroutines::RequireFinalReturn]
