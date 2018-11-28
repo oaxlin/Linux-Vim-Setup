@@ -305,8 +305,10 @@ package Git::Hooks::PerlCritic;
         my $self = shift;
         my $errors = 0;
         if (my $num = scalar @_) {
+            my @local_args = ('--');
+            unshift @local_args, '-p', $git_root.'/.perlcriticrc' if -e $git_root.'/.perlcriticrc';
             # perlcritic checks on something that fails "perl -c" is kinda pointless
-            my $out = qx{perlcritic --quiet -- @_};
+            my $out = qx{perlcritic --quiet @local_args @_};
             if ($?) {
                 print $out;
                 $errors++;
