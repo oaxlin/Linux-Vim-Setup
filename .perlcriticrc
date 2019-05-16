@@ -16,7 +16,11 @@ forbid = abstract close contract left no record right set
 max_mccabe = 35
 [-Subroutines::ProhibitExplicitReturnUndef]              ; could theoretically check if sub is intended to only do success or failure
 
+[TestingAndDebugging::RequireUseWarnings]
+equivalent_modules = Moo Moo::Role
+
 [TestingAndDebugging::ProhibitNoStrict]
+equivalent_modules = Moo Moo::Role
 allow = refs
 
 [ValuesAndExpressions::RequireNumberSeparators]
