@@ -8,6 +8,15 @@ export PATH
 PS1='[\j \u@\h:\w] '
 export PS1
 
+# Make sure our ssh-agent is running (useful for windows linux subsystem)
+if [ -z "$SSH_AUTH_SOCK" ]; then
+    if [ -f ".ssh/id_rsa" ]; then
+        echo -n 'SSH ';
+        eval $(ssh-agent -s)
+        echo 'Remember to ssh-add your keys';
+    fi
+fi
+
 WINDOW_TITLE_PREFIX='';
 if [ -e ~/.window_title_prefix ]
 then
