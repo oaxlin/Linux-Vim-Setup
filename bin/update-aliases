@@ -1,6 +1,7 @@
 #!/bin/bash
 echo -n 'Updating git aliases/config ... '
 git config --global user.name 'Jason Terry'
+git config --global core.editor vi
 git config --global alias.changed '!echo "Files changed in branch: "`git rev-parse --abbrev-ref HEAD` && git ls-files . --exclude-standard --others  --deleted -v -m'
 git config --global alias.ls      'log --date=short --pretty=format:"%C(yellow)%h\ %cd%Cred%d\ %Creset%s%Cblue\ [%cn]" --decorate'
 git config --global alias.ll      'log --date=short --pretty=format:"%C(yellow)%h\ %cd%Cred%d\ %Creset%s%Cblue\ [%cn]" --decorate --numstat'
