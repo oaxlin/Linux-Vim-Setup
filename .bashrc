@@ -7,6 +7,7 @@ PATH=$PATH:$HOME/bin
 export PATH
 PS1='[\j \u@\h:\w] '
 export PS1
+export EDITOR=vi
 
 # Make sure our ssh-agent is running (useful for windows linux subsystem)
 if [ -z "$SSH_AUTH_SOCK" ]; then
