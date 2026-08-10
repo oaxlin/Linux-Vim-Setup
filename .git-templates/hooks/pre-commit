@@ -224,18 +224,40 @@ package Git::Hooks::Compile::Sh;
 1;
 
 package Git::Hooks::Compile::YAML;
-    use File::Basename;
+    use File::Basename qw(fileparse basename);
     require Git::Hooks::IgnoreFile;
 
     sub will_check {
         my $self = shift;
         my $filepath = shift;
         return 0 if !-e $filepath || -d $filepath;
+        if ( basename($filepath) eq '.kds-noroll' ) {
+            return 1;
+        }
         my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        if ( $file_infos[2] =~ /^\.(yml)$/ ) {
+        # TODO: .conf may be INI or JSON in some trees; sniff format and validate accordingly.
+        if ( $file_infos[2] =~ /^\.(yml|conf)$/ ) {
             return 1;
         }
         return 0;
+    }
+
+    sub _check_kds_noroll {
+        my ($file) = @_;
+        open my $fh, '<', $file or return "cannot open $file: $!";
+        my $lineno = 0;
+        while (my $line = <$fh>) {
+            $lineno++;
+            chomp $line;
+            next if $line =~ /^\s*$/;
+            next if $line =~ /^\s*#/;
+            my ($path) = split / /, $line, 2;
+            if (!$path || $path =~ /\s/) {
+                return "line $lineno: expected path (optional tags), got: $line";
+            }
+        }
+        close $fh;
+        return;
     }
 
     sub check {
@@ -244,6 +266,14 @@ package Git::Hooks::Compile::YAML;
         if (my $num = scalar @_) {
             require YAML;
             foreach my $file (@_) {
+                if ( basename($file) eq '.kds-noroll' ) {
+                    my $e = _check_kds_noroll($file);
+                    if ($e) {
+                        print $file."\n   ".$e;
+                        $errors++;
+                    }
+                    next;
+                }
                 my $out = eval{ YAML::LoadFile($file); };
                 my $e = $@;
                 if ($e) {
