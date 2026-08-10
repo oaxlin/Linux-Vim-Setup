@@ -2,162 +2,59 @@
 use strict;
 use warnings;
 
-my $nb_errors = 0;
+our $VERSION = '1';
 
-# run checks on each file
-my $files = {
-    'Git::Hooks::PerlCritic'  => [],
-    # other file types can be expanded/checked if needed
-};
-
-my $git_root = `git rev-parse --show-toplevel`;
-chomp $git_root;
-exit 1 if (!$git_root);
-if (-e "$git_root/.git-perl5lib") {
-    my $tmp = `cat $git_root/.git-perl5lib`;
-    chop($tmp);
-    $ENV{'PERL5LIB'} = $tmp =~ s/\$PERL5LIB// ? ($ENV{'PERL5LIB'}//'').$tmp : $tmp;
-} else {
-    $ENV{'PERL5LIB'} ||= "$git_root/lib";
+sub hook_print {
+    my (@lines) = @_;
+    print @lines or die "print failed: $!\n";
+    return 1;
 }
 
-if (qx{ls ~/.git-templates/hooks/pre-commit}) {
-    # running the user file would potentially be a security risk.  so instead let's just take a peek to make sure they are the same
-    qx{which md5 2>&1 > /dev/null};
-    my $prog = $? ? 'md5sum' : 'md5 -r'; # linux vs mac
-    my ($me) = qx{$prog $0} =~ /^([^ ]+)/;
-    my ($you) = qx{$prog ~/.git-templates/hooks/pre-commit} =~ /^([^ ]+)/;
-    if ($you ne $me) {
-        print "###############################################################\n";
-        print "##\n";
-        print "##   WARNING: Your pre-commit hook appears to be out of date\n";
-        print "##\n";
-        print "###############################################################\n";
-        $nb_errors++
-    }
-}
-
-my @extra_files; # simple way to allow usage via command line
-{
-    use File::Find;
-    no warnings 'File::Find';
-    my $git_root_quoted = quotemeta $git_root;
-    find({
-            follow_fast => 1,
-            wanted => sub {
-                my $f = $_;
-                # Nice $File::Find::fullname is only defined if the original filename was a directory...
-                # this means we will always add specific files to @extra_files, even if they are in the .git dir
-                return if (($File::Find::fullname||'') =~ /^$git_root_quoted\/\.git(\/.*)?$/); # avoid .git directory
-                if (!-e $f) {
-                    # specifically check this to avoid typos on the command line... since norrmal hooks skip deleted
-                    # files in order to accommodate "git rm"
-                    print "Could not find command line file: $f\n";
-                    $nb_errors++;
-                }
-                push @extra_files, $File::Find::name if ! -d $f
-            },
-    }, @ARGV) if scalar @ARGV;
-}
-
-use List::MoreUtils qw(uniq);
-my @allfiles = uniq sort `git diff --cached --name-only`,@extra_files;
-chomp @allfiles;
-for my $filepath ( @allfiles ) {
-    # Cursor team rules (markdown + YAML frontmatter); no compile step
-    if ($filepath =~ m{\A[.]cursor/rules/team/.*[.]mdc\z}) {
-        push @{$files->{'Git::Hooks::IgnoreFile'}}, $filepath;
-        next;
-    }
-    # we pre-lookup so that tools that accept a list of files can do so for better performance
-    my $use_cnt = 0;
-    foreach my $package (
-        'Git::Hooks::Compile::YAML',
-        'Git::Hooks::Compile::Perl',
-        'Git::Hooks::PerlCritic',
-        'Git::Hooks::Pod::Checker',
-        'Git::Hooks::Compile::Bash',
-        'Git::Hooks::Compile::Sh',
-        'Git::Hooks::IgnoreFile',
-        'Git::Hooks::DeletedFile',
-    ) {
-        if (my $ret = eval{$package->will_check($filepath)}) { # could fit into more than one of these
-            $ret = [$package] unless ref $ret eq 'ARRAY'; # a list of package names
-            push @{$files->{$_}}, $filepath foreach @$ret;
-            $use_cnt++;
-        } elsif ($@) {
-            warn $@;
-            $nb_errors++;
-        }
-    }
-    if (!$use_cnt) {
-        print "pre-commit: unknown file type: $filepath\n";
-        $nb_errors++;
-    }
-}
-
-foreach my $package ( sort keys %$files ) {
-    my $num = scalar @{$files->{$package}};
-    next unless $num;
-    print "Checking $package ($num files)\n";
-    if (!$package->can('check')) {
-        print "$package: check sub not found\n";
-        $nb_errors++;
-    } elsif (!eval{$package->check(@{$files->{$package}})}) {
-        my $e = $@;
-        print "$package: $e\n" if $e;
-        $nb_errors++;
-    }
-}
-
-if ( $nb_errors ) {
-    print "pre-commit: Aborting commit due to pre-commit hook failure.  You can still commit with the --no-verify argument.\n";
-    exit 1;
-}
-exit 0;
-
+## no critic (Modules::ProhibitMultiplePackages)
 package Git::Hooks::DeletedFile;
-    sub will_check {
-        my $self = shift;
-        my $filename = shift;
-        return 1 if !-e $filename;
-        return 0;
+
+sub will_check {
+    my ( $self, $filename ) = @_;
+    return 1 if !-e $filename;
+    return 0;
+}
+
+sub check {
+    my ( $self, @paths ) = @_;
+    my $errors = 0;
+    for my $file (@paths) {
+        $errors++ if -e $file;
     }
-    sub check {
-        my $self = shift;
-        my $errors = 0;
-        if (my $num = scalar @_) {
-            foreach my $file (@_) {
-                $errors++ if -e $file;
-            }
-        }
-        return !$errors;
-    }
-1;
+    return !$errors;
+}
 
 package Git::Hooks::IgnoreFile;
-    our $forced_files;
+
+{
+    my $forced_files;
+
     sub should_force {
-        my $self = shift;
-        my $package = shift;
-        my $file = shift;
-        if (! defined $forced_files) {
+        my ( $self, $package, $file ) = @_;
+        if ( !defined $forced_files ) {
             $forced_files = {};
-            my $git_root = `git rev-parse --show-toplevel`;
-            chomp $git_root;
-            die "Could not find git_root" unless $git_root;
-            if (-e "$git_root/.git-hooks-ignorefile") {
-                open(my $fh, "<", "$git_root/.git-hooks-ignorefile") or die "cannot open < $git_root/.git-hooks-ignorefile: $!";
-                while (my $line = <$fh>) {
+            my $repo_root = `git rev-parse --show-toplevel`;
+            chomp $repo_root;
+            die "Could not find git_root" unless $repo_root;
+            if ( -e "$repo_root/.git-hooks-ignorefile" ) {
+                ## no critic (InputOutput::RequireBriefOpen)
+                open my $fh, '<', "$repo_root/.git-hooks-ignorefile"
+                  or die "cannot open < $repo_root/.git-hooks-ignorefile: $!";
+                while ( my $line = <$fh> ) {
                     chomp $line;
-                    if ($line =~ s/^([^\=]+)\=//) {
+                    if ( $line =~ s/^([^=]+)=//x ) {
                         my $p = $1;
                         if ($p) {
-                            push @{$forced_files->{$_}}, $line foreach ($p,'./'.$p);
+                            push @{ $forced_files->{$_} }, $line
+                              for ( $p, "./$p" );
                         }
                     }
                 }
-                close $fh;
+                close $fh or die "close failed: $!";
             }
         }
         return $forced_files->{$file} if exists $forced_files->{$file};
@@ -165,236 +62,371 @@ package Git::Hooks::IgnoreFile;
     }
 
     sub will_check {
-        my $self = shift;
-        my $filepath = shift;
-        return Git::Hooks::IgnoreFile->should_force(__PACKAGE__,$filepath);
+        my ( $self, $filepath ) = @_;
+        return __PACKAGE__->should_force( __PACKAGE__, $filepath );
     }
 
-    sub check { return 1; } # always returns true, so you can force to this
-
-1;
+    sub check { return 1; }
+}
 
 package Git::Hooks::Compile::ShellCommon;
-    use File::Basename;
 
-    sub will_check {
-        my $self = shift;
-        my $shell = shift || die 'Shell name that supports -n required (sh / bash)';
-        my $filepath = shift;
-        return 0 if !-e $filepath || -d $filepath;
-        my $fh;
-        my $head = '';
-        if (eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
-            $head = <$fh>;
-            close $fh;
-        }
-        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        my $shell_quoted = quotemeta $shell;
-        if ( $head =~ /^\#\!.*[\/\ ]$shell_quoted$/ ) {
-            return 1;
-        }
-        return 0;
+use File::Basename qw(fileparse);
+
+sub read_first_line {
+    my ($filepath) = @_;
+    my $head = q{};
+    if ( open my $fh, '-|', '/usr/bin/head', '-n', 1, '--', $filepath ) {
+        $head = <$fh> // q{};
+        close $fh or die "close failed: $!";
     }
+    return $head;
+}
 
-    sub check {
-        my $self = shift;
-        my $shell = shift || die 'Shell name that supports -n required (sh / bash)';
-        my $errors = 0;
-        if (my $num = scalar @_) {
-            foreach my $file (@_) {
-                my $out = qx{$shell -n -- $file 2>&1};
-                if ($?) {
-                    print $out;
-                    $errors++;
-                }
-            }
+sub will_check {
+    my ( $self, $shell, $filepath ) = @_;
+    die 'Shell name that supports -n required (sh / bash)' if !$shell;
+    return 0 if !-e $filepath || -d $filepath;
+    my $head         = read_first_line($filepath);
+    my @file_infos   = fileparse( $filepath, qr/[.][^.]*/x );
+    my $shell_quoted = quotemeta $shell;
+    return $head =~ /^[#][!].*[\/ ]$shell_quoted$/x ? 1 : 0;
+}
+
+sub check {
+    my ( $self, $shell, @paths ) = @_;
+    die 'Shell name that supports -n required (sh / bash)' if !$shell;
+    my $errors = 0;
+    for my $file (@paths) {
+        my $out = qx{$shell -n -- $file 2>&1};
+        if ($?) {
+            main::hook_print($out);
+            $errors++;
         }
-        return !$errors;
     }
-
-1;
+    return !$errors;
+}
 
 package Git::Hooks::Compile::Bash;
-  require Git::Hooks::Compile::ShellCommon;
-  sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('bash',@_); }
-  sub check { shift; Git::Hooks::Compile::ShellCommon->check('bash',@_); }
 
-1;
+sub will_check {
+    my ( $self, @args ) = @_;
+    return Git::Hooks::Compile::ShellCommon->will_check( 'bash', @args );
+}
+
+sub check {
+    my ( $self, @args ) = @_;
+    return Git::Hooks::Compile::ShellCommon->check( 'bash', @args );
+}
 
 package Git::Hooks::Compile::Sh;
-  require Git::Hooks::Compile::ShellCommon;
-  sub will_check { shift; Git::Hooks::Compile::ShellCommon->will_check('sh',@_); }
-  sub check { shift; Git::Hooks::Compile::ShellCommon->check('sh',@_); }
 
-1;
+sub will_check {
+    my ( $self, @args ) = @_;
+    return Git::Hooks::Compile::ShellCommon->will_check( 'sh', @args );
+}
+
+sub check {
+    my ( $self, @args ) = @_;
+    return Git::Hooks::Compile::ShellCommon->check( 'sh', @args );
+}
 
 package Git::Hooks::Compile::YAML;
-    use File::Basename qw(fileparse basename);
-    require Git::Hooks::IgnoreFile;
 
-    sub will_check {
-        my $self = shift;
-        my $filepath = shift;
-        return 0 if !-e $filepath || -d $filepath;
-        if ( basename($filepath) eq '.kds-noroll' ) {
-            return 1;
+use File::Basename qw(fileparse basename);
+
+sub will_check {
+    my ( $self, $filepath ) = @_;
+    return 0 if !-e $filepath || -d $filepath;
+    return 1 if basename($filepath) eq '.kds-noroll';
+    my @file_infos = fileparse( $filepath, qr/[.][^.]*/x );
+    return $file_infos[2] =~ /^[.](?:yml|conf)$/x ? 1 : 0;
+}
+
+sub _check_kds_noroll {
+    my ($file) = @_;
+    ## no critic (InputOutput::RequireBriefOpen)
+    open my $fh, '<', $file or return "cannot open $file: $!";
+    my $lineno = 0;
+    while ( my $line = <$fh> ) {
+        $lineno++;
+        chomp $line;
+        next if $line =~ /^\s*$/x;
+        next if $line =~ /^\s*#/x;
+        my ($path) = split / /x, $line, 2;
+        if ( !$path || $path =~ /\s/x ) {
+            return "line $lineno: expected path (optional tags), got: $line";
         }
-        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        # TODO: .conf may be INI or JSON in some trees; sniff format and validate accordingly.
-        if ( $file_infos[2] =~ /^\.(yml|conf)$/ ) {
-            return 1;
-        }
-        return 0;
     }
+    close $fh or die "close failed: $!";
+    return;
+}
 
-    sub _check_kds_noroll {
-        my ($file) = @_;
-        open my $fh, '<', $file or return "cannot open $file: $!";
-        my $lineno = 0;
-        while (my $line = <$fh>) {
-            $lineno++;
-            chomp $line;
-            next if $line =~ /^\s*$/;
-            next if $line =~ /^\s*#/;
-            my ($path) = split / /, $line, 2;
-            if (!$path || $path =~ /\s/) {
-                return "line $lineno: expected path (optional tags), got: $line";
-            }
-        }
-        close $fh;
-        return;
-    }
-
-    sub check {
-        my $self = shift;
-        my $errors = 0;
-        if (my $num = scalar @_) {
-            require YAML;
-            foreach my $file (@_) {
-                if ( basename($file) eq '.kds-noroll' ) {
-                    my $e = _check_kds_noroll($file);
-                    if ($e) {
-                        print $file."\n   ".$e;
-                        $errors++;
-                    }
-                    next;
-                }
-                my $out = eval{ YAML::LoadFile($file); };
-                my $e = $@;
-                if ($e) {
-                    $e =~ s/[\n\r\s]*at .*?YAML\.pm line \d+\s*/\n/; # useless info
-                    print $file."\n   ".$e;
-                    $errors++;
-                }
-            }
-        }
-        return !$errors;
-    }
-
-1;
-
-package Git::Hooks::Compile::Perl;
-    use File::Basename;
-    require Git::Hooks::IgnoreFile;
-
-    sub will_check {
-        my $self = shift;
-        my $filepath = shift;
-        return 0 if !-e $filepath || -d $filepath;
-        my $fh;
-        my $head = '';
-        if (eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
-            $head = <$fh>;
-            close $fh;
-        }
-        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        if ( $file_infos[2] =~ /^\.(pl|cgi|pm)$/ || $head =~ /^(package [^;]+;|\#\!.*[\/\ ]*perl\b.*)$/) {
-            return 1;
-        }
-        return 0;
-    }
-
-    sub check {
-        my $self = shift;
-        my $errors = 0;
-        if (my $num = scalar @_) {
-            foreach my $file (@_) {
-                my $out = qx{perl -c -w -- $file 2>&1};
-                if ($?) {
-                    print $out;
-                    $errors++;
-                }
-            }
-        }
-        return !$errors;
-    }
-
-1;
-
-package Git::Hooks::PerlCritic;
-    require Git::Hooks::Compile::Perl;
-
-    sub will_check {
-        my ($self, $filepath) = @_;
-        return 0 if $filepath eq '.git-templates/hooks/pre-commit';
-        return Git::Hooks::Compile::Perl->will_check($filepath);
-    }
-
-    sub check {
-        my $self = shift;
-        my $errors = 0;
-        if (my $num = scalar @_) {
-            my @local_args = ('--');
-            unshift @local_args, '-p', $git_root.'/.perlcriticrc' if -e $git_root.'/.perlcriticrc';
-            # perlcritic checks on something that fails "perl -c" is kinda pointless
-            my $out = qx{perlcritic --quiet @local_args @_};
-            if ($?) {
-                print $out;
+sub check {
+    my ( $self, @paths ) = @_;
+    my $errors = 0;
+    require YAML;
+    for my $file (@paths) {
+        if ( basename($file) eq '.kds-noroll' ) {
+            my $e = _check_kds_noroll($file);
+            if ($e) {
+                main::hook_print( $file, "\n   ", $e );
                 $errors++;
             }
+            next;
         }
-        return !$errors;
+        my $ok = eval { YAML::LoadFile($file); 1 };
+        my $e  = $@;
+        if ( !$ok ) {
+            $e =~ s/[\n\r\s]*at .*?YAML[.]pm line \d+\s*/\n/x;
+            main::hook_print( $file, "\n   ", $e );
+            $errors++;
+        }
     }
+    return !$errors;
+}
 
-1;
+package Git::Hooks::Compile::Perl;
+
+use File::Basename qw(fileparse);
+
+sub will_check {
+    my ( $self, $filepath ) = @_;
+    return 0 if !-e $filepath || -d $filepath;
+    my $head = Git::Hooks::Compile::ShellCommon::read_first_line($filepath);
+    my @file_infos = fileparse( $filepath, qr/[.][^.]*/x );
+    return 1
+      if $file_infos[2] =~ /^[.](?:pl|cgi|pm)$/x
+      || $head =~ /^(?:package [^;]+;|[#][!].*[\/ ]*perl\b.*)$/x;
+    return 0;
+}
+
+sub check {
+    my ( $self, @paths ) = @_;
+    my $errors = 0;
+    for my $file (@paths) {
+        my $out = qx{perl -c -w -- $file 2>&1};
+        if ($?) {
+            main::hook_print($out);
+            $errors++;
+        }
+    }
+    return !$errors;
+}
+
+package Git::Hooks::PerlCritic;
+
+my $GIT_ROOT;
+
+sub set_git_root {
+    my ( $class, $root ) = @_;
+    $GIT_ROOT = $root;
+    return;
+}
+
+sub will_check {
+    my ( $self, $filepath ) = @_;
+    return Git::Hooks::Compile::Perl->will_check($filepath);
+}
+
+sub check {
+    my ( $self, @paths ) = @_;
+    my $errors     = 0;
+    my @local_args = ('--');
+    if ( -e ( $GIT_ROOT . '/.perlcriticrc' ) ) {
+        unshift @local_args, '-p', $GIT_ROOT . '/.perlcriticrc';
+    }
+    my $out = qx{perlcritic --quiet @local_args @paths};
+    if ($?) {
+        main::hook_print($out);
+        $errors++;
+    }
+    return !$errors;
+}
+
 package Git::Hooks::Pod::Checker;
-    use Pod::Checker;
-    use File::Basename;
-    use IO::Scalar;
 
-    sub will_check {
-        my $self = shift;
-        my $filepath = shift;
-        return 0 if !-e $filepath || -d $filepath;
-        my $fh;
-        my $head = '';
-        if (eval{open $fh, '-|', '/usr/bin/head', ('-n',1,'--',$filepath)}) {
-            $head = <$fh>;
-            close $fh;
+use Pod::Checker   ();
+use File::Basename qw(fileparse);
+use IO::Scalar     ();
+
+sub will_check {
+    my ( $self, $filepath ) = @_;
+    return 0 if !-e $filepath || -d $filepath;
+    my $head = Git::Hooks::Compile::ShellCommon::read_first_line($filepath);
+    my @file_infos = fileparse( $filepath, qr/[.][^.]*/x );
+    return $file_infos[2] =~ /^[.]pod$/x || $head =~ /^=pod$/x ? 1 : 0;
+}
+
+sub check {
+    my ( $self, @paths ) = @_;
+    my $errors = 0;
+    for my $file (@paths) {
+        my $out;
+        my $fh         = IO::Scalar->new( \$out );
+        my $num_errors = podchecker( $file, $fh );
+        if ($num_errors) {
+            main::hook_print( $file, "\n   contains POD errors" );
+            $errors++;
         }
-        my @file_infos = fileparse( $filepath, qr/\.[^.]*/ );
-        if ( $file_infos[2] =~ /^\.pod$/ || $head =~ /^=pod$/) {
-            return 1;
-        }
-        return 0;
     }
+    return !$errors;
+}
 
+package main;
 
-    sub check {
-        my $self = shift;
-        my $errors = 0;
-        if (my $num = scalar @_) {
-            foreach my $file (@_) {
-                my $out;
-                my $fh = new IO::Scalar \$out;
-                my $num_errors = podchecker($file, $fh);
-                if ($num_errors) {
-                    print $file."\n   contains POD errors";
-                    $errors++;
+my $nb_errors = 0;
+my $git_root;
+
+sub _setup_perl5lib {
+    my ($root) = @_;
+    if ( -e "$root/.git-perl5lib" ) {
+        my $tmp = `cat $root/.git-perl5lib`;
+        chomp $tmp;
+        $ENV{'PERL5LIB'} =
+          $tmp =~ s/\$PERL5LIB// ? ( $ENV{'PERL5LIB'} // '' ) . $tmp : $tmp;
+        return;
+    }
+    $ENV{'PERL5LIB'} ||= "$root/lib";
+    return;
+}
+
+sub _warn_if_hook_template_stale {
+    return if !qx{ls ~/.git-templates/hooks/pre-commit};
+    my $void  = qx{which md5 2>&1 > /dev/null};
+    my $prog  = $? ? 'md5sum' : 'md5 -r';
+    my ($me)  = qx{$prog $0}                                =~ /^([^ ]+)/x;
+    my ($you) = qx{$prog ~/.git-templates/hooks/pre-commit} =~ /^([^ ]+)/x;
+    return if $you eq $me;
+    hook_print(
+        "###############################################################\n",
+        "##\n",
+        "##   WARNING: Your pre-commit hook appears to be out of date\n",
+        "##\n",
+        "###############################################################\n",
+    );
+    $nb_errors++;
+    return $void;
+}
+
+sub _collect_extra_files {
+    my ($root) = @_;
+    my @paths;
+    return @paths if !@ARGV;
+    my $root_q = quotemeta $root;
+    require File::Find;
+    File::Find::find(
+        {
+            follow_fast => 1,
+            wanted      => sub {
+                my $f        = $_;
+                my $fullname = $File::Find::fullname;
+                my $name     = $File::Find::name;
+                return
+                  if ( $fullname // '' ) =~ /^$root_q\/[.]git(?:\/.*)?$/x;
+                if ( !-e $f ) {
+                    hook_print("Could not find command line file: $f\n");
+                    $nb_errors++;
+                    return;
                 }
-            }
-        }
-        return !$errors;
-    }
+                push @paths, $name if !-d $f;
+            },
+        },
+        @ARGV,
+    );
+    return @paths;
+}
 
-1;
+sub _is_cursor_team_mdc {
+    my ($filepath) = @_;
+    return $filepath =~ m{\A[.]cursor/rules/team/.*[.]mdc\z}x;
+}
+
+sub _is_ignored_config {
+    my ($filepath) = @_;
+    return $filepath =~ m{\A[.]perlcriticrc\z}x;
+}
+
+sub _classify_filepath {
+    my ( $filepath, $files ) = @_;
+    if ( _is_cursor_team_mdc($filepath) || _is_ignored_config($filepath) ) {
+        push @{ $files->{'Git::Hooks::IgnoreFile'} }, $filepath;
+        return 1;
+    }
+    my $use_cnt = 0;
+    for my $package (
+        'Git::Hooks::Compile::YAML', 'Git::Hooks::Compile::Perl',
+        'Git::Hooks::PerlCritic',    'Git::Hooks::Pod::Checker',
+        'Git::Hooks::Compile::Bash', 'Git::Hooks::Compile::Sh',
+        'Git::Hooks::IgnoreFile',    'Git::Hooks::DeletedFile',
+      )
+    {
+        my $ret = eval { $package->will_check($filepath) };
+        if ($@) {
+            warn $@;
+            $nb_errors++;
+            next;
+        }
+        next if !$ret;
+        my @pkgs = ref $ret eq 'ARRAY' ? @{$ret} : ($package);
+        for my $pkg (@pkgs) {
+            push @{ $files->{$pkg} }, $filepath;
+        }
+        $use_cnt++;
+    }
+    if ( !$use_cnt ) {
+        hook_print("pre-commit: unknown file type: $filepath\n");
+        $nb_errors++;
+    }
+    return $use_cnt;
+}
+
+sub _run_package_checks {
+    my ($files) = @_;
+    for my $package ( sort keys %{$files} ) {
+        my $paths = $files->{$package};
+        my $num   = scalar @{$paths};
+        next if !$num;
+        hook_print("Checking $package ($num files)\n");
+        if ( !$package->can('check') ) {
+            hook_print("$package: check sub not found\n");
+            $nb_errors++;
+            next;
+        }
+        if ( !eval { $package->check( @{$paths} ) } ) {
+            my $e = $@;
+            hook_print("$package: $e\n") if $e;
+            $nb_errors++;
+        }
+    }
+    return;
+}
+
+my $files = { 'Git::Hooks::PerlCritic' => [], };
+
+$git_root = `git rev-parse --show-toplevel`;
+chomp $git_root;
+exit 1 if !$git_root;
+
+Git::Hooks::PerlCritic->set_git_root($git_root);
+
+_setup_perl5lib($git_root);
+_warn_if_hook_template_stale();
+
+use List::MoreUtils qw(uniq);
+my @extra_files = _collect_extra_files($git_root);
+my @allfiles    = uniq sort `git diff --cached --name-only`, @extra_files;
+chomp @allfiles;
+for my $filepath (@allfiles) {
+    _classify_filepath( $filepath, $files );
+}
+_run_package_checks($files);
+
+if ($nb_errors) {
+    hook_print(
+        "pre-commit: Aborting commit due to pre-commit hook failure.  ",
+        "You can still commit with the --no-verify argument.\n",
+    );
+    exit 1;
+}
+exit 0;

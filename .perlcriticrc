@@ -33,7 +33,7 @@ allowed_values = -1 0..31 60 100 300 1900 3600 86400 32 255 all_integers
 add_packages = Data::Dumper config Time Carp
 
 [Variables::ProhibitPunctuationVars]
-allow = $@ $! $0 $$ $/ $|
+allow = $@ $! $0 $$ $/ $? $| $&
 
 [Variables::RequireLocalizedPunctuationVars]
 allow = %ENV
