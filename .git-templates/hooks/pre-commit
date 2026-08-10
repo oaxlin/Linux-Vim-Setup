@@ -64,6 +64,11 @@ use List::MoreUtils qw(uniq);
 my @allfiles = uniq sort `git diff --cached --name-only`,@extra_files;
 chomp @allfiles;
 for my $filepath ( @allfiles ) {
+    # Cursor team rules (markdown + YAML frontmatter); no compile step
+    if ($filepath =~ m{\A[.]cursor/rules/team/.*[.]mdc\z}) {
+        push @{$files->{'Git::Hooks::IgnoreFile'}}, $filepath;
+        next;
+    }
     # we pre-lookup so that tools that accept a list of files can do so for better performance
     my $use_cnt = 0;
     foreach my $package (
@@ -329,7 +334,11 @@ package Git::Hooks::Compile::Perl;
 package Git::Hooks::PerlCritic;
     require Git::Hooks::Compile::Perl;
 
-    sub will_check { my $self = shift; Git::Hooks::Compile::Perl->will_check(@_); }
+    sub will_check {
+        my ($self, $filepath) = @_;
+        return 0 if $filepath eq '.git-templates/hooks/pre-commit';
+        return Git::Hooks::Compile::Perl->will_check($filepath);
+    }
 
     sub check {
         my $self = shift;
