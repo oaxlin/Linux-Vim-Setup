@@ -42,6 +42,10 @@ allow = %ENV
 [InputOutput::ProhibitBacktickOperators]
 only_in_void_context = 1
 
+[InputOutput::RequireCheckedSyscalls]
+functions = :builtins
+exclude_functions = print
+
 [-BuiltinFunctions::ProhibitSleepViaSelect]
 
 ; no useless double quotes (but do allow doubles to avoid escaping singles)
