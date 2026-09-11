@@ -27,6 +27,27 @@ package Git::Hooks::IgnoreFile;
 {
     my $forced_files;
 
+    sub _load_ignore_file {
+        my ( $into, $path ) = @_;
+        return if !-e $path;
+        ## no critic (InputOutput::RequireBriefOpen)
+        open my $fh, '<', $path or die "cannot open < $path: $!";
+        while ( my $line = <$fh> ) {
+            chomp $line;
+            next if $line =~ /^\s*\#/ || $line eq '';
+            if ( $line =~ s/^([^=]+)=//x ) {
+                my $p = $1;
+                $p =~ s/\A\s+|\s+\z//g;
+                if ($p) {
+                    push @{ $into->{$_} }, $line
+                      for ( $p, "./$p" );
+                }
+            }
+        }
+        close $fh or die "close failed: $!";
+        return;
+    }
+
     sub should_force {
         my ( $self, $package, $file ) = @_;
         if ( !defined $forced_files ) {
@@ -34,21 +55,11 @@ package Git::Hooks::IgnoreFile;
             my $repo_root = `git rev-parse --show-toplevel`;
             chomp $repo_root;
             die "Could not find git_root" unless $repo_root;
-            if ( -e "$repo_root/.git-hooks-ignorefile" ) {
-                ## no critic (InputOutput::RequireBriefOpen)
-                open my $fh, '<', "$repo_root/.git-hooks-ignorefile"
-                  or die "cannot open < $repo_root/.git-hooks-ignorefile: $!";
-                while ( my $line = <$fh> ) {
-                    chomp $line;
-                    if ( $line =~ s/^([^=]+)=//x ) {
-                        my $p = $1;
-                        if ($p) {
-                            push @{ $forced_files->{$_} }, $line
-                              for ( $p, "./$p" );
-                        }
-                    }
-                }
-                close $fh or die "close failed: $!";
+            _load_ignore_file( $forced_files,
+                "$repo_root/.git-hooks-ignorefile" );
+            if ( my $home = $ENV{'HOME'} ) {
+                _load_ignore_file( $forced_files,
+                    "$home/.git-hooks-ignorefile" );
             }
         }
         return $forced_files->{$file} if exists $forced_files->{$file};
@@ -146,7 +157,7 @@ sub _check_kds_noroll {
         $lineno++;
         chomp $line;
         next if $line =~ /^\s*$/x;
-        next if $line =~ /^\s*#/x;
+        next if $line =~ /^\s*\#/;
         my ($path) = split / /x, $line, 2;
         if ( !$path || $path =~ /\s/x ) {
             return "line $lineno: expected path (optional tags), got: $line";
@@ -308,26 +319,41 @@ sub _collect_extra_files {
     my @paths;
     return @paths if !@ARGV;
     my $root_q = quotemeta $root;
-    require File::Find;
-    File::Find::find(
-        {
-            follow_fast => 1,
-            wanted      => sub {
-                my $f        = $_;
-                my $fullname = $File::Find::fullname;
-                my $name     = $File::Find::name;
-                return
-                  if ( $fullname // '' ) =~ /^$root_q\/[.]git(?:\/.*)?$/x;
-                if ( !-e $f ) {
-                    print("Could not find command line file: $f\n");
-                    $nb_errors++;
-                    return;
-                }
-                push @paths, $name if !-d $f;
+    for my $arg (@ARGV) {
+        if ( !-e $arg ) {
+            print("Could not find command line file: $arg\n");
+            $nb_errors++;
+            next;
+        }
+        if ( !-d $arg ) {
+            push @paths, $arg;
+            next;
+        }
+        require File::Find;
+        File::Find::find(
+            {
+                follow_fast => 1,
+                wanted      => sub {
+                    ## no critic (TestingAndDebugging::ProhibitNoWarnings) File::Find package vars
+                    no warnings 'once';
+                    my $f        = $_;
+                    my $fullname = $File::Find::fullname;
+                    my $name     = $File::Find::name;
+                    use warnings 'once';
+                    return
+                      if ( ( $fullname // $name // '' ) ) =~
+                      /^$root_q\/[.]git(?:\/.*)?$/x;
+                    if ( !-e $f ) {
+                        print("Could not find command line file: $f\n");
+                        $nb_errors++;
+                        return;
+                    }
+                    push @paths, $name if !-d $f;
+                },
             },
-        },
-        @ARGV,
-    );
+            $arg,
+        );
+    }
     return @paths;
 }
 

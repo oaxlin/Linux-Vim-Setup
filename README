@@ -5,6 +5,19 @@ In other words the "bin" directory is actually "~/bin"
 
 Some of these are modifications from other authors so see each individual file for it's license.
 
+== Git pre-commit hook ==
+
+Repos under ~/repos with init.templateDir or symlinked hooks use
+`.git-templates/hooks/pre-commit`. That hook reads ignore rules from:
+
+* `<repo>/.git-hooks-ignorefile` (optional, usually not committed)
+* `~/.git-hooks-ignorefile` (per developer; paths are relative to repo root)
+
+Format: `path/relative/to/repo=Git::Hooks::IgnoreFile`
+
+Use this for file types the hook does not classify (e.g. `conf/crontab.in`,
+Helm `charts/*/templates/*.yaml`). Comment lines start with `#`.
+
 THERE IS NO WARRANTY FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY
 APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
 HOLDERS AND/OR OTHER PARTIES PROVIDE THE SOFTWARE "AS IS" WITHOUT

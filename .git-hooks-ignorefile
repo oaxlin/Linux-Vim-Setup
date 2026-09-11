@@ -10,3 +10,5 @@ README=Git::Hooks::IgnoreFile
 .vim/plugin/foldsearches.vim=Git::Hooks::IgnoreFile
 .vim/plugin/smartcom.vim=Git::Hooks::IgnoreFile
 .gitignore=Git::Hooks::IgnoreFile
+
+# Optional per-developer ignores for CL repos (see ~/.git-hooks-ignorefile)
